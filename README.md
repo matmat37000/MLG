@@ -4,6 +4,7 @@
 > [!IMPORTANT]  
 > Currently, only the Linux version is implemented. No release is available yet. A full release will be published once the program is fully functional.  
 > At the moment, Godot can execute arbitrary code with Modot, but it only works on my development machine. Updates will be pushed soon to fix this limitation.
+> Also name is subject to change
 
 ## What is Modot?  
 Modot is a tool that replaces the original game assembly, allowing users to load custom DLLs and PCK files into a game.  
