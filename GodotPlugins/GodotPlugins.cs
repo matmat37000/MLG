@@ -7,6 +7,7 @@ using Godot.NativeInterop;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
+// ReSharper disable once CheckNamespace
 namespace GodotPlugins.Game;
 
 /// <summary>
@@ -50,7 +51,6 @@ public static class Main
         // var context = new NoFallbackLoadContext(patchedDllPath);
         var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(patchedDllPath);
 
-        var self = typeof(Main).Assembly;
         // Console.WriteLine($"Using {self.FullName} from {self.Location}");
         Console.WriteLine($"Loaded {assembly.FullName} from {assembly.Location}");
 
@@ -77,11 +77,6 @@ public static class Main
             Console.WriteLine("Method 'InitializeFromGameProject' not found.");
             return godot_bool.False;
         }
-
-        // var original = AccessTools.Method(type, "InitializeFromGameProject");
-        // var postfix = AccessTools.Method(typeof(Main), "WaitForSceneTree");
-        // var harmony = new Harmony("com.mathiol.godotsharp_game_main");
-        // harmony.Patch(original, postfix: new HarmonyMethod(postfix));
 
         Console.WriteLine("Calling original Godot init...");
         // The assembly should be patched before the real InitializeFromGameProject
@@ -200,8 +195,7 @@ public static class Main
         foreach (var instr in method.Body.Instructions)
             if (
                 (instr.OpCode == OpCodes.Call || instr.OpCode == OpCodes.Callvirt)
-                && instr.Operand is MethodReference methodRef
-                && methodRef.Name == "LookupScriptsInAssembly"
+                && instr.Operand is MethodReference { Name: "LookupScriptsInAssembly" }
             )
             {
                 targetInstruction = instr;
@@ -215,11 +209,11 @@ public static class Main
         }
 
         // Import references needed:
-        var typeType = assembly.MainModule.ImportReference(typeof(Type));
+        _ = assembly.MainModule.ImportReference(typeof(Type));
         var getTypeFromHandle = assembly.MainModule.ImportReference(
             typeof(Type).GetMethod("GetTypeFromHandle", [typeof(RuntimeTypeHandle)])
         );
-        var assemblyType = assembly.MainModule.ImportReference(typeof(Assembly));
+        _ = assembly.MainModule.ImportReference(typeof(Assembly));
         var getAssemblyMethod = assembly.MainModule.ImportReference(
             typeof(Type).GetProperty("Assembly")?.GetGetMethod()
         );
@@ -288,17 +282,11 @@ public static class Main
         while (isInitialized.CompareTo(godot_bool.True) != 0)
         {
             isInitialized = (godot_bool)(
-                dotnetModuleIsInitializedMethod?.Invoke(null, null)
+                dotnetModuleIsInitializedMethod.Invoke(null, null)
                 ?? throw new NullReferenceException()
             );
             Console.WriteLine($"The dotnet state is: {isInitialized}");
         }
-
-        // Console.WriteLine($"I have found {nativeFuncs}, {dotnetModuleIsInitializedMethod}");
-
-        // Only now use Godot directly
-        // var tree = (SceneTree)Engine.GetMainLoop();
-        // var treeRoot = tree.GetRoot()!;
 
         while (true)
         {
@@ -306,7 +294,7 @@ public static class Main
             Console.WriteLine($"Main loop: {mainLoop}");
 
             // Only continue if SceneTree is active (not just a Window)
-            if (mainLoop is SceneTree tree && tree.Root != null)
+            if (mainLoop is SceneTree { Root: not null } tree)
             {
                 Console.WriteLine("SceneTree ready, injecting autoload...");
                 _sceneTree = tree;
@@ -318,7 +306,7 @@ public static class Main
                 // var boot = new Modot.Bootstrap();
                 // treeRoot.AddChild(box);
                 treeRoot.CallDeferred("add_child", box);
-                Console.WriteLine("Getting the bootstraper");
+                Console.WriteLine("Getting the bootstrapper");
 
                 var success = ProjectSettings.LoadResourcePack("user://PluginLoader.pck");
                 Console.WriteLine(
