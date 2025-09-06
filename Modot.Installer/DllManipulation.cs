@@ -1,7 +1,7 @@
 using System.Reflection;
 using Mono.Cecil;
 
-namespace Modot.Bootstrap;
+namespace Modot.Installer;
 
 internal static class DllManipulation
 {
@@ -16,6 +16,7 @@ internal static class DllManipulation
         if (File.Exists(newDllPath))
             File.Delete(newDllPath);
         File.Copy(originalDllPath, newDllPath);
+        Console.WriteLine($"Copied {originalDllPath} to {newDllPath}");
     }
 
     /// <summary>
@@ -28,10 +29,14 @@ internal static class DllManipulation
         if (File.Exists(newDllPath))
         {
             if (File.Exists(originalDllPath))
+            {
                 File.Delete(originalDllPath);
+                Console.WriteLine("Removed shim...");
+            }
 
             File.Copy(newDllPath, originalDllPath);
             File.Delete(newDllPath);
+            Console.WriteLine("Restored original.");
         }
     }
 
@@ -47,17 +52,14 @@ internal static class DllManipulation
         if (File.Exists(originalDllPath))
             File.Delete(originalDllPath);
 
-        var exePath = Assembly.GetExecutingAssembly().Location;
-        var exeDir = Path.GetDirectoryName(exePath);
-        if (exeDir == null)
-            throw new Exception("Unable to find an installation directory for the CLI");
+        var exeDir = GetExecutingDir();
 
         var dllPath = Path.Combine(exeDir, "GodotPlugins.dll");
 
         if (!Path.Exists(dllPath))
             throw new Exception("GodotPlugins not found");
 
-        Console.WriteLine($"Copying {dllPath}");
+        Console.WriteLine($"Patching {dllPath}");
 
         var assembly = AssemblyDefinition.ReadAssembly(dllPath);
 
@@ -94,5 +96,54 @@ internal static class DllManipulation
         assembly.Write(originalDllPath);
 
         Console.WriteLine($"Wrote {originalDllPath}");
+    }
+
+    private static string GetExecutingDir()
+    {
+        var exePath = Assembly.GetExecutingAssembly().Location;
+        var exeDir = Path.GetDirectoryName(exePath);
+        if (exeDir == null)
+            throw new Exception("Unable to find an installation directory for the CLI");
+
+        return exeDir;
+    }
+
+    /// <summary>
+    /// Copy project dependencies to game data dir
+    /// </summary>
+    /// <param name="dataFolderPath">Folder to copy dll to</param>
+    internal static void CopyDependencies(string dataFolderPath)
+    {
+        var exeDir = GetExecutingDir();
+        var loadPath = Path.Combine(exeDir, "DLLs");
+
+        foreach (var dllPath in Directory.GetFiles(loadPath, "*.dll"))
+        {
+            var finalPath = Path.Combine(dataFolderPath, Path.GetFileName(dllPath));
+            if (!File.Exists(finalPath))
+            {
+                File.Copy(dllPath, finalPath);
+                Console.WriteLine("Copied " + dllPath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Remove all dlls in game data directory that exist in loader dir
+    /// </summary>
+    /// <param name="dataFolderPath"></param>
+    internal static void RemoveDependencies(string dataFolderPath)
+    {
+        var exeDir = GetExecutingDir();
+        var loadPath = Path.Combine(exeDir, "DLLs");
+        foreach (var dllPath in Directory.GetFiles(loadPath, "*.dll"))
+        {
+            var path = Path.Combine(dataFolderPath, Path.GetFileName(dllPath));
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                Console.WriteLine("Removed " + dllPath);
+            }
+        }
     }
 }

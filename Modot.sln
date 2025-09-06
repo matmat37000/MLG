@@ -2,11 +2,11 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modot.Core", "Modot.Core\Modot.Core.csproj", "{AEC7AE5F-5923-4663-A132-FE9A97645F43}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modot.Bootstrap", "Modot.Bootstrap\Modot.Bootstrap.csproj", "{FA35DC5D-B2EE-44FD-A0E1-0F89E5E9091A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modot.Installer", "Modot.Installer\Modot.Installer.csproj", "{FA35DC5D-B2EE-44FD-A0E1-0F89E5E9091A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotPlugins", "GodotPlugins\GodotPlugins.csproj", "{C87DBBBD-468A-479B-957F-E4488FBEC903}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bootstrap", "Bootstrap\Bootstrap.csproj", "{2AA891AB-D531-4AA4-BD88-1FB89D141E6B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Modot.Bootstrap", "Modot.Bootstrap\Modot.Bootstrap.csproj", "{2AA891AB-D531-4AA4-BD88-1FB89D141E6B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

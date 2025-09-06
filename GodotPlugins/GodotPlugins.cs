@@ -39,7 +39,7 @@ public static class Main
         // Get DLL file name
         var dllName = Path.GetFileNameWithoutExtension(Assembly.GetExecutingAssembly().Location);
         // Apply the correct path
-        var dllPath = Path.Combine(exeDir, $"{dllName}.dll"); // The original assembly
+        var dllPath = Path.Combine(exeDir, $"{dllName}_original.dll"); // The original assembly
         var patchedDllPath = Path.Combine(exeDir, $"{dllName}_patched.dll"); // The patched one for reflection
 
         // Load Mono.Cecil.dll manually because Godot Engine can't do it for us
@@ -143,13 +143,13 @@ public static class Main
             }
         }
 
-        if (requestedAssembly.Name == "Bootstrap")
+        if (requestedAssembly.Name == "Modot.Bootstrap")
         {
-            Console.WriteLine("Requesting Bootstrap assembly...");
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Bootstrap.dll");
+            Console.WriteLine("Requesting Modot.Bootstrap assembly...");
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Modot.Bootstrap.dll");
             if (File.Exists(path))
             {
-                Console.WriteLine("Imported Bootstrap assembly");
+                Console.WriteLine("Imported Modot.Bootstrap assembly");
                 return Assembly.LoadFrom(path);
             }
         }
@@ -168,7 +168,10 @@ public static class Main
         string patchedDllPath
     )
     {
+        Console.WriteLine("Patching game project...");
         var assembly = AssemblyDefinition.ReadAssembly(originalDllPath);
+        Console.WriteLine($"{assembly.FullName} found [{originalDllPath}]");
+
         var type = assembly.MainModule.GetType("GodotPlugins.Game.Main");
         var method = type.Methods.First(m => m.Name == "InitializeFromGameProject");
 
@@ -192,7 +195,7 @@ public static class Main
         var hookType = hookModule.Types.First(t => t.Name == "Main");
         var hookMethod = hookType.Methods.First(m => m.Name == "WaitForSceneTree");
 
-        // Find existing call to ScriptManagerBridge.LookupScriptsInAssembly
+        // Find existing call to ScriptManagerBridge.LookupScriptsInAssembly in original dll
         Instruction? targetInstruction = null;
         foreach (var instr in method.Body.Instructions)
             if (
@@ -221,7 +224,7 @@ public static class Main
             typeof(Type).GetProperty("Assembly")?.GetGetMethod()
         );
 
-        var bootstrapType = assembly.MainModule.ImportReference(typeof(Bootstrap.Bootstrap));
+        var bootstrapType = assembly.MainModule.ImportReference(typeof(Modot.Bootstrap.Bootstrap));
 
         // The method ref for ScriptManagerBridge.LookupScriptsInAssembly
         // We assume it's the same method as in the targetInstruction
@@ -231,7 +234,7 @@ public static class Main
         // Create instructions
         var instructionsToInsert = new[]
         {
-            il.Create(OpCodes.Ldtoken, bootstrapType), // ldtoken Bootstrap.Bootstrap
+            il.Create(OpCodes.Ldtoken, bootstrapType), // ldtoken Modot.Bootstrap.Modot.Bootstrap
             il.Create(OpCodes.Call, getTypeFromHandle), // call Type.GetTypeFromHandle
             il.Create(OpCodes.Callvirt, getAssemblyMethod), // callvirt get_Assembly
             il.Create(OpCodes.Call, lookupMethod), // call ScriptManagerBridge.LookupScriptsInAssembly
@@ -266,6 +269,7 @@ public static class Main
             method.CustomAttributes.Remove(attrToRemove);
 
         assembly.Write(patchedDllPath);
+        Console.WriteLine($"Done patching game project..., wrote to {patchedDllPath}");
     }
 
     private static async Task PrintInitializationOfDotnet()
@@ -311,18 +315,21 @@ public static class Main
                 var treeRoot = tree.Root;
 
                 var box = new CsgBox3D { Position = new Vector3(5, 2, 0) };
-                // var boot = new Bootstrap();
+                // var boot = new Modot.Bootstrap();
                 // treeRoot.AddChild(box);
                 treeRoot.CallDeferred("add_child", box);
                 Console.WriteLine("Getting the bootstraper");
 
                 var success = ProjectSettings.LoadResourcePack("user://PluginLoader.pck");
-                if (success)
-                    Console.WriteLine("[Modot] Plugin loaded successfully !");
+                Console.WriteLine(
+                    success
+                        ? "[Modot] Plugin loaded successfully !"
+                        : "[Modot] Plugin loading failed !"
+                );
 
-                var dir = ResourceLoader.ListDirectory("res://");
-                foreach (var s in dir)
-                    Console.WriteLine(s);
+                // var dir = ResourceLoader.ListDirectory("res://");
+                // foreach (var s in dir)
+                //     Console.WriteLine(s);
 
                 Console.WriteLine("[Modot] Calling ResourceLoader...");
                 var userDir = OS.GetUserDataDir();
@@ -354,39 +361,6 @@ public static class Main
                 Console.WriteLine($"Getting the instance: {pluginLoaderScene}");
                 pluginLoaderScene.TreeEntered += () => InstanceOnTreeEntered(pluginLoaderScene);
                 Console.WriteLine("Adding child to scene");
-                return;
-
-                // Inject script
-
-                // box.SetScript(instance);
-
-                GD.Print(treeRoot.GetChildren());
-
-                while (true)
-                {
-                    var currrentTree = treeRoot.GetTree();
-                    if (currrentTree != null)
-                        break;
-                }
-
-                GD.Print(treeRoot.GetTree());
-
-                // while (true)
-                // {
-                //     tree = Engine.GetMainLoop() as SceneTree ?? throw new InvalidOperationException();
-                //     treeRoot = tree.Root;
-                //
-                //     // GD.Print(treeRoot);
-                //     GD.Print(tree.G);
-                //     // var children = treeRoot.GetChildren();
-                //     // if (children.Count > 1)
-                //     // {
-                //         // GD.Print(children);
-                //         // break;
-                //     // }
-                //     await Task.Delay(100);
-                // }
-
                 break;
             }
 
@@ -410,7 +384,7 @@ public static class Main
         // // myTree.AddChild(instance);
         // GD.Print(treeRoot.GetChildren());
         // GD.Print(myTree.GetRoot().GetTree());
-        // GD.Print("Bootstrap is ok");
+        // GD.Print("Modot.Bootstrap is ok");
     }
 
     public static void WaitForSceneTree(
