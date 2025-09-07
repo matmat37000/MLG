@@ -138,13 +138,13 @@ public static class Main
             }
         }
 
-        if (requestedAssembly.Name == "Modot.Bootstrap")
+        if (requestedAssembly.Name == "MLG.Bootstrap")
         {
-            Console.WriteLine("Requesting Modot.Bootstrap assembly...");
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Modot.Bootstrap.dll");
+            Console.WriteLine("Requesting MLG.Bootstrap assembly...");
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MLG.Bootstrap.dll");
             if (File.Exists(path))
             {
-                Console.WriteLine("Imported Modot.Bootstrap assembly");
+                Console.WriteLine("Imported MLG.Bootstrap assembly");
                 return Assembly.LoadFrom(path);
             }
         }
@@ -218,7 +218,7 @@ public static class Main
             typeof(Type).GetProperty("Assembly")?.GetGetMethod()
         );
 
-        var bootstrapType = assembly.MainModule.ImportReference(typeof(Modot.Bootstrap.Bootstrap));
+        var bootstrapType = assembly.MainModule.ImportReference(typeof(MLG.Bootstrap.Bootstrap));
 
         // The method ref for ScriptManagerBridge.LookupScriptsInAssembly
         // We assume it's the same method as in the targetInstruction
@@ -228,7 +228,7 @@ public static class Main
         // Create instructions
         var instructionsToInsert = new[]
         {
-            il.Create(OpCodes.Ldtoken, bootstrapType), // ldtoken Modot.Bootstrap.Modot.Bootstrap
+            il.Create(OpCodes.Ldtoken, bootstrapType), // ldtoken MLG.Bootstrap.MLG.Bootstrap
             il.Create(OpCodes.Call, getTypeFromHandle), // call Type.GetTypeFromHandle
             il.Create(OpCodes.Callvirt, getAssemblyMethod), // callvirt get_Assembly
             il.Create(OpCodes.Call, lookupMethod), // call ScriptManagerBridge.LookupScriptsInAssembly
@@ -303,7 +303,7 @@ public static class Main
                 var treeRoot = tree.Root;
 
                 var box = new CsgBox3D { Position = new Vector3(5, 2, 0) };
-                // var boot = new Modot.Bootstrap();
+                // var boot = new MLG.Bootstrap();
                 // treeRoot.AddChild(box);
                 treeRoot.CallDeferred("add_child", box);
                 Console.WriteLine("Getting the bootstrapper");
@@ -372,7 +372,7 @@ public static class Main
         // // myTree.AddChild(instance);
         // GD.Print(treeRoot.GetChildren());
         // GD.Print(myTree.GetRoot().GetTree());
-        // GD.Print("Modot.Bootstrap is ok");
+        // GD.Print("MLG.Bootstrap is ok");
     }
 
     public static void WaitForSceneTree(
