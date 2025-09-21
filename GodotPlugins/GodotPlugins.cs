@@ -4,6 +4,7 @@ using System.Runtime.Loader;
 using Godot;
 using Godot.Bridge;
 using Godot.NativeInterop;
+using MLG.Core;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -33,66 +34,94 @@ public static class Main
         int unmanagedCallbacksSize
     )
     {
-        // Get where the program is executed to get assembly around it
-        var exeDir = AppContext.BaseDirectory;
-        Console.WriteLine($"Living in {exeDir}");
-
-        // Get DLL file name
-        var dllName = Path.GetFileNameWithoutExtension(Assembly.GetExecutingAssembly().Location);
-        // Apply the correct path
-        var dllPath = Path.Combine(exeDir, $"{dllName}_original.dll"); // The original assembly
-        var patchedDllPath = Path.Combine(exeDir, $"{dllName}_patched.dll"); // The patched one for reflection
-
-        // Load Mono.Cecil.dll manually because Godot Engine can't do it for us
-        AppDomain.CurrentDomain.AssemblyResolve += LoadDependencies;
-
-        PatchInitializeFromGameProject(dllPath, patchedDllPath);
-
-        // var context = new NoFallbackLoadContext(patchedDllPath);
-        var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(patchedDllPath);
-
-        // Console.WriteLine($"Using {self.FullName} from {self.Location}");
-        Console.WriteLine($"Loaded {assembly.FullName} from {assembly.Location}");
-
-        // Search the original GodotPlugin.Game::Main function
-        var type = assembly.GetType("GodotPlugins.Game.Main");
-
-        if (type == null)
+        try
         {
-            Console.WriteLine("Type 'GodotPlugin.Game.Main' not found.");
+            // Get where the program is executed to get assembly around it
+            var exeDir = AppContext.BaseDirectory;
+            Console.WriteLine($"Living in {exeDir}");
+
+            // Get DLL file name
+            var dllName = Path.GetFileNameWithoutExtension(
+                Assembly.GetExecutingAssembly().Location
+            );
+            // Apply the correct path
+            var dllPath = Path.Combine(exeDir, $"{dllName}_original.dll"); // The original assembly
+            var patchedDllPath = Path.Combine(exeDir, $"{dllName}_patched.dll"); // The patched one for reflection
+
+            // Load MLG.Core.dll manually because Godot Engine can't do it for us
+            AppDomain.CurrentDomain.AssemblyResolve += LoadDependencies;
+            // var mlgCoreDllPath = Path.Combine(exeDir, "MLG", "Core", "MLG.Core.dll");
+            // if (Path.Exists(mlgCoreDllPath))
+            //     AssemblyLoadContext.Default.LoadFromAssemblyPath(mlgCoreDllPath);
+            // else
+            // {
+            //     Console.WriteLine($"Failed to find MLG.Core.dll");
+            //     throw new Exception("Could not find MLG.Core.dll");
+            // }
+
+            // var dllManager = new DllManager();
+            // Console.WriteLine(DllManager.WorkingDirectory);
+            // AppDomain.CurrentDomain.AssemblyResolve -= LoadDependencies;
+
+            PatchInitializeFromGameProject(dllPath, patchedDllPath);
+
+            // var context = new NoFallbackLoadContext(patchedDllPath);
+            var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(patchedDllPath);
+
+            // Console.WriteLine($"Using {self.FullName} from {self.Location}");
+            Console.WriteLine($"Loaded {assembly.FullName} from {assembly.Location}");
+
+            // Search the original GodotPlugin.Game::Main function
+            var type = assembly.GetType("GodotPlugins.Game.Main");
+
+            if (type == null)
+            {
+                Console.WriteLine("Type 'GodotPlugin.Game.Main' not found.");
+                return godot_bool.False;
+            }
+
+            foreach (var m in type.GetMethods(BindingFlags.NonPublic | BindingFlags.Static))
+                Console.WriteLine($"Method '{m.Name}' of '{m.DeclaringType?.FullName}'.");
+
+            // Search the original InitializeFromGameProject
+            var method = type.GetMethod(
+                "InitializeFromGameProject",
+                BindingFlags.NonPublic | BindingFlags.Static
+            );
+
+            if (method == null)
+            {
+                Console.WriteLine("Method 'InitializeFromGameProject' not found.");
+                return godot_bool.False;
+            }
+
+            Console.WriteLine("Calling original Godot init...");
+            // The assembly should be patched before the real InitializeFromGameProject
+            // Call the original InitializeFromGameProject via reflection
+
+            var returnedValue = (godot_bool)
+                method.Invoke(
+                    null,
+                    [
+                        godotDllHandle,
+                        outManagedCallbacks,
+                        unmanagedCallbacks,
+                        unmanagedCallbacksSize,
+                    ]
+                )!;
+
+            Console.WriteLine("GodotSharp Game Initialized");
+
+            // PrintInitializationOfDotnet();
+
+            return returnedValue;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"[ERROR] Failed to initialize GodotSharp Game");
+            Console.WriteLine(e);
             return godot_bool.False;
         }
-
-        foreach (var m in type.GetMethods(BindingFlags.NonPublic | BindingFlags.Static))
-            Console.WriteLine($"Method '{m.Name}' of '{m.DeclaringType?.FullName}'.");
-
-        // Search the original InitializeFromGameProject
-        var method = type.GetMethod(
-            "InitializeFromGameProject",
-            BindingFlags.NonPublic | BindingFlags.Static
-        );
-
-        if (method == null)
-        {
-            Console.WriteLine("Method 'InitializeFromGameProject' not found.");
-            return godot_bool.False;
-        }
-
-        Console.WriteLine("Calling original Godot init...");
-        // The assembly should be patched before the real InitializeFromGameProject
-        // Call the original InitializeFromGameProject via reflection
-
-        var returnedValue = (godot_bool)
-            method.Invoke(
-                null,
-                [godotDllHandle, outManagedCallbacks, unmanagedCallbacks, unmanagedCallbacksSize]
-            )!;
-
-        Console.WriteLine("GodotSharp Game Initialized");
-
-        // PrintInitializationOfDotnet();
-
-        return returnedValue;
     }
 
     private static void InjectNode()
@@ -114,39 +143,19 @@ public static class Main
 
     private static Assembly? LoadDependencies(object? _, ResolveEventArgs args)
     {
-        Console.WriteLine($"Resolving assembly {args.Name}");
         var requestedAssembly = new AssemblyName(args.Name);
-        if (requestedAssembly.Name == "Mono.Cecil")
-        {
-            Console.WriteLine("Requesting Mono.Cecil assembly...");
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Mono.Cecil.dll");
-            if (File.Exists(path))
-            {
-                Console.WriteLine("Imported Mono.Cecil.dll");
-                return Assembly.LoadFrom(path);
-            }
-        }
+        Console.WriteLine($"[Loader] Resolving assembly {requestedAssembly.Name}");
+        var path = Path.Combine(
+            AppContext.BaseDirectory,
+            "MLG",
+            "core",
+            requestedAssembly.Name + ".dll"
+        );
 
-        if (requestedAssembly.Name == "0Harmony")
+        if (File.Exists(path))
         {
-            Console.WriteLine("Requesting 0Harmony assembly...");
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "0Harmony.dll");
-            if (File.Exists(path))
-            {
-                Console.WriteLine("Imported 0Harmony assembly");
-                return Assembly.LoadFrom(path);
-            }
-        }
-
-        if (requestedAssembly.Name == "MLG.Bootstrap")
-        {
-            Console.WriteLine("Requesting MLG.Bootstrap assembly...");
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MLG.Bootstrap.dll");
-            if (File.Exists(path))
-            {
-                Console.WriteLine("Imported MLG.Bootstrap assembly");
-                return Assembly.LoadFrom(path);
-            }
+            Console.WriteLine($"[Loader] Loading from {path}");
+            return Assembly.LoadFrom(path);
         }
 
         return null;

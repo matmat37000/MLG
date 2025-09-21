@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace MLG.Installer;
@@ -49,7 +51,7 @@ internal static class Run
         var originalDllPath = Path.Combine(dllDir, gameName + ".dll");
         var newDllPath = originalDllPath.Replace(".dll", "_original.dll"); // Get the new path for the original dll
 
-        DllManipulation.RestoreOriginalDll(originalDllPath, newDllPath);
+        CleanGame(gameExe);
         DllManipulation.CopyDll(originalDllPath, newDllPath);
         DllManipulation.ShimOriginalDll(originalDllPath, gameName);
         DllManipulation.CopyDependencies(dllDir);

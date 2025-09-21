@@ -1,4 +1,7 @@
+using System;
+using System.IO;
 using System.Reflection;
+using Microsoft.VisualBasic;
 using Mono.Cecil;
 
 namespace MLG.Installer;
@@ -114,36 +117,44 @@ internal static class DllManipulation
     /// <param name="dataFolderPath">Folder to copy dll to</param>
     internal static void CopyDependencies(string dataFolderPath)
     {
-        var exeDir = GetExecutingDir();
-        var loadPath = Path.Combine(exeDir, "DLLs");
+        var fileManager = new FilesManager(dataFolderPath);
+        var success = fileManager.CreateFolderStructure();
 
-        foreach (var dllPath in Directory.GetFiles(loadPath, "*.dll"))
+        if (!success)
+            return;
+
+        var exeDir = GetExecutingDir();
+        foreach (var dll in Directory.GetFiles(exeDir))
         {
-            var finalPath = Path.Combine(dataFolderPath, Path.GetFileName(dllPath));
-            if (!File.Exists(finalPath))
-            {
-                File.Copy(dllPath, finalPath);
-                Console.WriteLine("Copied " + dllPath);
-            }
+            // TODO: CHANGE TO CORRECT NAME
+            if (dll.EndsWith(".dll") && !dll.EndsWith("ModotInstaller.dll"))
+                File.Copy(dll, Path.Combine(dataFolderPath, "MLG", "core", Path.GetFileName(dll)));
         }
+
+        // var exeDir = GetExecutingDir();
+        // var path = Path.Combine(exeDir, "MLG", "Lib");
+        //
+        // if (Path.Exists(path))
+        // {
+        //     var destPath = Path.Combine(dataFolderPath, "MLG", "Lib");
+        //     if (!Directory.Exists(destPath))
+        //         Directory.CreateDirectory(destPath);
+        //
+        //     foreach (var file in Directory.GetFiles(path))
+        //     {
+        //         File.Copy(file, Path.Combine(destPath, Path.GetFileName(file)), true);
+        //     }
+        // }
     }
 
     /// <summary>
-    /// Remove all dlls in game data directory that exist in loader dir
+    /// Remove all dlls in game data directory
     /// </summary>
     /// <param name="dataFolderPath"></param>
     internal static void RemoveDependencies(string dataFolderPath)
     {
-        var exeDir = GetExecutingDir();
-        var loadPath = Path.Combine(exeDir, "DLLs");
-        foreach (var dllPath in Directory.GetFiles(loadPath, "*.dll"))
-        {
-            var path = Path.Combine(dataFolderPath, Path.GetFileName(dllPath));
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-                Console.WriteLine("Removed " + dllPath);
-            }
-        }
+        var fileManager = new FilesManager(dataFolderPath);
+        Console.WriteLine($"Removing {dataFolderPath}/MLG");
+        fileManager.RemoveFolderStructure();
     }
 }
