@@ -1,6 +1,10 @@
-﻿using System.Reflection;
+﻿using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
+using System.Threading.Tasks;
 using Godot;
 using Godot.Bridge;
 using Godot.NativeInterop;
@@ -36,6 +40,9 @@ public static class Main
     {
         try
         {
+            // Load MLG.Core.dll manually because Godot Engine can't do it for us
+            AppDomain.CurrentDomain.AssemblyResolve += LoadDependencies;
+
             // Get where the program is executed to get assembly around it
             var exeDir = AppContext.BaseDirectory;
             Console.WriteLine($"Living in {exeDir}");
@@ -48,8 +55,6 @@ public static class Main
             var dllPath = Path.Combine(exeDir, $"{dllName}_original.dll"); // The original assembly
             var patchedDllPath = Path.Combine(exeDir, $"{dllName}_patched.dll"); // The patched one for reflection
 
-            // Load MLG.Core.dll manually because Godot Engine can't do it for us
-            AppDomain.CurrentDomain.AssemblyResolve += LoadDependencies;
             // var mlgCoreDllPath = Path.Combine(exeDir, "MLG", "Core", "MLG.Core.dll");
             // if (Path.Exists(mlgCoreDllPath))
             //     AssemblyLoadContext.Default.LoadFromAssemblyPath(mlgCoreDllPath);
@@ -59,9 +64,11 @@ public static class Main
             //     throw new Exception("Could not find MLG.Core.dll");
             // }
 
-            var dllManager = new DllManager();
+            // var dllManager = new DllManager();
             // Console.WriteLine(DllManager.WorkingDirectory);
             // AppDomain.CurrentDomain.AssemblyResolve -= LoadDependencies;
+
+            // InitializeMLGDllManager();
 
             PatchInitializeFromGameProject(dllPath, patchedDllPath);
 
@@ -123,6 +130,11 @@ public static class Main
             return godot_bool.False;
         }
     }
+
+    // private static DllManager InitializeMLGDllManager()
+    // {
+    //     var dll = new DllManager();
+    // }
 
     private static void InjectNode()
     {
@@ -227,7 +239,7 @@ public static class Main
             typeof(Type).GetProperty("Assembly")?.GetGetMethod()
         );
 
-        var bootstrapType = assembly.MainModule.ImportReference(typeof(MLG.Bootstrap.Bootstrap));
+        // var bootstrapType = assembly.MainModule.ImportReference(typeof(MLG.Bootstrap.Bootstrap));
 
         // The method ref for ScriptManagerBridge.LookupScriptsInAssembly
         // We assume it's the same method as in the targetInstruction
@@ -235,21 +247,21 @@ public static class Main
 
         var il = method.Body.GetILProcessor();
         // Create instructions
-        var instructionsToInsert = new[]
-        {
-            il.Create(OpCodes.Ldtoken, bootstrapType), // ldtoken MLG.Bootstrap.MLG.Bootstrap
-            il.Create(OpCodes.Call, getTypeFromHandle), // call Type.GetTypeFromHandle
-            il.Create(OpCodes.Callvirt, getAssemblyMethod), // callvirt get_Assembly
-            il.Create(OpCodes.Call, lookupMethod), // call ScriptManagerBridge.LookupScriptsInAssembly
-        };
-
-        // Insert instructions after the existing call
-        var insertAfter = targetInstruction;
-        foreach (var newInstr in instructionsToInsert)
-        {
-            il.InsertAfter(insertAfter, newInstr);
-            insertAfter = newInstr;
-        }
+        // var instructionsToInsert = new[]
+        // {
+        //     il.Create(OpCodes.Ldtoken, bootstrapType), // ldtoken MLG.Bootstrap.MLG.Bootstrap
+        //     il.Create(OpCodes.Call, getTypeFromHandle), // call Type.GetTypeFromHandle
+        //     il.Create(OpCodes.Callvirt, getAssemblyMethod), // callvirt get_Assembly
+        //     il.Create(OpCodes.Call, lookupMethod), // call ScriptManagerBridge.LookupScriptsInAssembly
+        // };
+        //
+        // // Insert instructions after the existing call
+        // var insertAfter = targetInstruction;
+        // foreach (var newInstr in instructionsToInsert)
+        // {
+        //     il.InsertAfter(insertAfter, newInstr);
+        //     insertAfter = newInstr;
+        // }
 
         // Import the method reference into the target module
         var hookMethodRef = assembly.MainModule.ImportReference(hookMethod);
@@ -277,67 +289,69 @@ public static class Main
 
     private static async Task PrintInitializationOfDotnet()
     {
+        // Get the NativeFuncs class from GodotSharp
         var nativeFuncs = Type.GetType("Godot.NativeInterop.NativeFuncs, GodotSharp");
+        // Get the godotsharp_dotnet_module_is_initialized method from NativeFuncs
         var dotnetModuleIsInitializedMethod = nativeFuncs?.GetMethod(
             "godotsharp_dotnet_module_is_initialized",
             BindingFlags.NonPublic | BindingFlags.Static
         );
+
         var isInitialized = (godot_bool)(
             dotnetModuleIsInitializedMethod?.Invoke(null, null)
             ?? throw new NullReferenceException()
         );
-        Console.WriteLine($"The dotnet state is: {isInitialized}");
+        Console.WriteLine($"[MLG] The dotnet state is: {isInitialized}");
 
+        // Wait for CoreCLR to be fully initialized
         while (isInitialized.CompareTo(godot_bool.True) != 0)
         {
             isInitialized = (godot_bool)(
                 dotnetModuleIsInitializedMethod.Invoke(null, null)
                 ?? throw new NullReferenceException()
             );
-            Console.WriteLine($"The dotnet state is: {isInitialized}");
+            Console.WriteLine($"[MLG] The dotnet state is: {isInitialized}");
         }
 
         while (true)
         {
             var mainLoop = Engine.GetMainLoop();
-            Console.WriteLine($"Main loop: {mainLoop}");
+            Console.WriteLine($"[MLG] Main loop: {mainLoop}");
 
             // Only continue if SceneTree is active (not just a Window)
             if (mainLoop is SceneTree { Root: not null } tree)
             {
-                Console.WriteLine("SceneTree ready, injecting autoload...");
+                Console.WriteLine("[MLG] SceneTree ready, injecting autoload...");
                 _sceneTree = tree;
                 // InjectAutoload(tree);
 
                 var treeRoot = tree.Root;
 
+                // Test box
                 var box = new CsgBox3D { Position = new Vector3(5, 2, 0) };
-                // var boot = new MLG.Bootstrap();
-                // treeRoot.AddChild(box);
-                treeRoot.CallDeferred("add_child", box);
-                Console.WriteLine("Getting the bootstrapper");
 
-                var success = ProjectSettings.LoadResourcePack("user://PluginLoader.pck");
+                treeRoot.CallDeferred("add_child", box);
+                Console.WriteLine("[MLG] Getting the bootstrapper");
+
+                var success = ProjectSettings.LoadResourcePack("user://MLG.Bootstrap.pck");
                 Console.WriteLine(
-                    success
-                        ? "[Modot] Plugin loaded successfully !"
-                        : "[Modot] Plugin loading failed !"
+                    success ? "[MLG] Plugin loaded successfully !" : "[MLG] Plugin loading failed !"
                 );
 
                 // var dir = ResourceLoader.ListDirectory("res://");
                 // foreach (var s in dir)
                 //     Console.WriteLine(s);
 
-                Console.WriteLine("[Modot] Calling ResourceLoader...");
+                Console.WriteLine("[MLG] Calling ResourceLoader...");
                 var userDir = OS.GetUserDataDir();
-                Console.WriteLine($"[Modot] User directory: {userDir}");
+                Console.WriteLine($"[MLG] User directory: {userDir}");
                 try
                 {
                     var pluginLoaderAssembly = Assembly.LoadFile(
-                        Path.Combine(userDir, "plugin-loader.dll")
+                        Path.Combine(userDir, "MLG.Bootstrap.dll")
                     );
                     Console.WriteLine(
-                        $"[Modot] Plugin loader assembly: {pluginLoaderAssembly.FullName}"
+                        $"[MLG] Plugin loader assembly: {pluginLoaderAssembly.FullName}"
                     );
                     ScriptManagerBridge.LookupScriptsInAssembly(pluginLoaderAssembly);
                 }
@@ -348,12 +362,12 @@ public static class Main
                 }
 
                 var pluginLoaderScene = ResourceLoader
-                    .Load<PackedScene>("res://plugin_loader.tscn")
+                    .Load<PackedScene>("res://main.tscn")
                     .Instantiate();
-                Console.WriteLine($"[Modot] Loading scene: {pluginLoaderScene}");
+                Console.WriteLine($"[MLG] Loading scene: {pluginLoaderScene}");
                 // treeRoot.CallDeferred("add_child", pluginLoaderScene);
                 treeRoot.AddChild(pluginLoaderScene);
-                Console.WriteLine("[Modot] Loaded the scene !");
+                Console.WriteLine("[MLG] Loaded the scene !");
 
                 Console.WriteLine($"Getting the instance: {pluginLoaderScene}");
                 pluginLoaderScene.TreeEntered += () => InstanceOnTreeEntered(pluginLoaderScene);
