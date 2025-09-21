@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
-using Godot.Collections;
 
 namespace MLG.Installer;
 
@@ -26,6 +26,7 @@ public class FilesManager(string gamePath)
         foreach (var dir in (List<string>)["config", "core", "lib", "plugins"])
         {
             Directory.CreateDirectory(Path.Combine(baseDir, dir));
+            Console.WriteLine($"Created {dir}");
         }
 
         return true;
@@ -39,5 +40,6 @@ public class FilesManager(string gamePath)
         var baseDir = Path.Join(GamePath, "MLG");
         if (Directory.Exists(baseDir))
             Directory.Delete(baseDir, recursive: true);
+        Console.WriteLine($"Deleted {baseDir}");
     }
 }
