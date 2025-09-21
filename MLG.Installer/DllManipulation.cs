@@ -126,8 +126,7 @@ internal static class DllManipulation
         var exeDir = GetExecutingDir();
         foreach (var dll in Directory.GetFiles(exeDir))
         {
-            // TODO: CHANGE TO CORRECT NAME
-            if (dll.EndsWith(".dll") && !dll.EndsWith("ModotInstaller.dll"))
+            if (dll.EndsWith(".dll") && !dll.EndsWith("MLGInstaller.dll"))
                 File.Copy(dll, Path.Combine(dataFolderPath, "MLG", "core", Path.GetFileName(dll)));
         }
 
