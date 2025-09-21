@@ -15,6 +15,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\MLG.Bootstrap\MLG.Bootstrap.csproj" />
+      <ProjectReference Include="..\MLG.Core\MLG.Core.csproj" />
     </ItemGroup>
 
 </Project>

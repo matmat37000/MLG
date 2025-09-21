@@ -4,6 +4,7 @@ using System.Runtime.Loader;
 using Godot;
 using Godot.Bridge;
 using Godot.NativeInterop;
+using MLG.Core;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -58,7 +59,7 @@ public static class Main
             //     throw new Exception("Could not find MLG.Core.dll");
             // }
 
-            // var dllManager = new DllManager();
+            var dllManager = new DllManager();
             // Console.WriteLine(DllManager.WorkingDirectory);
             // AppDomain.CurrentDomain.AssemblyResolve -= LoadDependencies;
 
