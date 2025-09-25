@@ -27,10 +27,18 @@ namespace MLG.Installer;
 internal static class DllManipulation
 {
     /// <summary>
-    /// Duplicate DLL and return new path, the new DLL is created next to the original
+    /// Duplicates a DLL file and returns the path to the copy.
+    /// The duplicated DLL is created alongside the original.
     /// </summary>
-    /// <param name="originalDllPath">The path to the dll to duplicate</param>
-    /// <param name="newDllPath">The path where to copy it</param>
+    /// <param name="originalDllPath">
+    /// The full path to the DLL to duplicate.
+    /// </param>
+    /// <param name="newDllPath">
+    /// The full path where the DLL copy will be created.
+    /// </param>
+    /// <returns>
+    /// The full path to the duplicated DLL.
+    /// </returns>
     internal static void CopyDll(string originalDllPath, string newDllPath)
     {
         // Delete old copy to avoid error
@@ -41,10 +49,14 @@ internal static class DllManipulation
     }
 
     /// <summary>
-    /// Restore game's DLL with the backup if it exists
+    /// Restores the game's original DLL from a backup, if the backup exists.
     /// </summary>
-    /// <param name="originalDllPath">The DLL to restore</param>
-    /// <param name="newDllPath">The backup</param>
+    /// <param name="originalDllPath">
+    /// The full path to the game DLL that should be restored.
+    /// </param>
+    /// <param name="newDllPath">
+    /// The full path to the backup DLL used for restoration.
+    /// </param>
     internal static void RestoreOriginalDll(string originalDllPath, string newDllPath)
     {
         if (File.Exists(newDllPath))
@@ -62,11 +74,18 @@ internal static class DllManipulation
     }
 
     /// <summary>
-    /// Create a shim of the original game DLL, this function patch the shim to look identical to Godot
+    /// Creates a shim for the original game DLL. The generated shim is patched
+    /// to appear identical to the Godot assembly.
     /// </summary>
-    /// <param name="originalDllPath">The path of the original assembly to shim</param>
-    /// <param name="gameAssemblyName">The game assembly name, used to patch the shim</param>
-    /// <exception cref="Exception">If the function cannot found the GodotPlugin dll to patch</exception>
+    /// <param name="originalDllPath">
+    /// The full path to the original assembly that will be shimmed.
+    /// </param>
+    /// <param name="gameAssemblyName">
+    /// The name of the game assembly, used to patch the shim.
+    /// </param>
+    /// <exception cref="Exception">
+    /// Thrown if the required <c>GodotPlugin.dll</c> cannot be found for patching.
+    /// </exception>
     internal static void ShimOriginalDll(string originalDllPath, string gameAssemblyName)
     {
         // Delete game DLL
@@ -119,29 +138,43 @@ internal static class DllManipulation
         Console.WriteLine($"Wrote {originalDllPath}");
     }
 
+    /// <summary>
+    /// Retrieves the directory from which the program is being executed.
+    /// </summary>
+    /// <returns>
+    /// The full path to the program's execution directory.
+    /// </returns>
+    /// <exception cref="DirectoryNotFoundException">
+    /// Thrown when the program's installation or execution directory cannot be determined.
+    /// </exception>
     private static string GetExecutingDir()
     {
         var exePath = Assembly.GetExecutingAssembly().Location;
         var exeDir = Path.GetDirectoryName(exePath);
         if (exeDir == null)
-            throw new Exception("Unable to find an installation directory for the CLI");
+            throw new DirectoryNotFoundException(
+                "Unable to find an installation directory for the CLI"
+            );
 
         return exeDir;
     }
 
     /// <summary>
-    /// Copy project dependencies to game data dir
+    /// Copies the project dependency DLLs into the specified game data directory.
     /// </summary>
-    /// <param name="dataFolderPath">Folder to copy dll to</param>
+    /// <param name="dataFolderPath">
+    /// The full path to the game data directory where the DLLs will be copied.
+    /// </param>
     internal static void CopyDependencies(string dataFolderPath)
     {
-        var fileManager = new FilesManager(dataFolderPath);
-        var success = fileManager.CreateFolderStructure();
+        var success = FilesManager.CreateFolderStructure(dataFolderPath);
 
+        // If there are no folders created we can't continue
         if (!success)
             return;
 
         var exeDir = GetExecutingDir();
+        // Copy each dll from the execution directory to the MLG/core folder
         foreach (var dll in Directory.GetFiles(exeDir))
         {
             if (dll.EndsWith(".dll") && !dll.EndsWith("MLGInstaller.dll"))
@@ -151,31 +184,17 @@ internal static class DllManipulation
                 Console.WriteLine($"{dll} -> {path}");
             }
         }
-
-        // var exeDir = GetExecutingDir();
-        // var path = Path.Combine(exeDir, "MLG", "Lib");
-        //
-        // if (Path.Exists(path))
-        // {
-        //     var destPath = Path.Combine(dataFolderPath, "MLG", "Lib");
-        //     if (!Directory.Exists(destPath))
-        //         Directory.CreateDirectory(destPath);
-        //
-        //     foreach (var file in Directory.GetFiles(path))
-        //     {
-        //         File.Copy(file, Path.Combine(destPath, Path.GetFileName(file)), true);
-        //     }
-        // }
     }
 
     /// <summary>
-    /// Remove all dlls in game data directory
+    /// Removes all dependency DLLs from the specified game data directory.
     /// </summary>
-    /// <param name="dataFolderPath"></param>
+    /// <param name="dataFolderPath">
+    /// The full path to the game data directory containing the DLLs to remove.
+    /// </param>
     internal static void RemoveDependencies(string dataFolderPath)
     {
-        var fileManager = new FilesManager(dataFolderPath);
         Console.WriteLine($"Removing {dataFolderPath}/MLG");
-        fileManager.RemoveFolderStructure();
+        FilesManager.RemoveFolderStructure(dataFolderPath);
     }
 }

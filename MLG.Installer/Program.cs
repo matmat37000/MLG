@@ -17,7 +17,10 @@
 */
 
 using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -27,67 +30,82 @@ internal static class Program
 {
     private static void Main(string[] args)
     {
-        var gameExe = HandleArgs(args);
-        if (gameExe == null)
-            return;
-
-        Console.WriteLine(
-            $"Platform:  {Environment.OSVersion.Platform} {RuntimeInformation.OSArchitecture}"
-        );
-        Console.WriteLine(
-            "Installing in: " + Path.GetDirectoryName(gameExe)
-                ?? throw new NullReferenceException("Directory not found")
-        );
-
-        AppDomain.CurrentDomain.AssemblyResolve += LoadDependencies;
-
-        Run.RunGame(gameExe, Environment.OSVersion.Platform);
+        HandleArgs(args);
     }
 
     /// <summary>
-    /// Try to load DLL from the DLLs dir instead of the execution directory.
+    /// Processes and handles the command-line arguments provided to the program.
     /// </summary>
-    /// <returns>The assembly if found, else null</returns>
-    private static Assembly? LoadDependencies(object? _, ResolveEventArgs args)
+    /// <param name="args">An array of command-line arguments passed to the program.</param>
+    private static void HandleArgs(string[] args)
     {
-        var requestedAssembly = new AssemblyName(args.Name);
-        var path = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "DLLs",
-            requestedAssembly.Name + ".dll"
-        );
-        return File.Exists(path) ? Assembly.LoadFrom(path) : null;
+        // Show help if not argument passed
+        if (args.Length == 0)
+        {
+            ShowHelp();
+        }
+        else
+        {
+            // Get the game executable path from the arguments
+            var gameExe = args.Skip(1).FirstOrDefault();
+
+            switch (args[0])
+            {
+                case "--help" or "-h":
+                    ShowHelp();
+                    break;
+                case "--install" or "-i":
+                    // Write the help message and error message
+                    if (gameExe == null)
+                    {
+                        Console.WriteLine("Game exe not found in arguments");
+                        ShowHelp();
+                        return;
+                    }
+                    Command.InstallInGame(gameExe);
+                    break;
+                case "--uninstall" or "-u":
+                    // Write the help message and error message
+                    if (gameExe == null)
+                    {
+                        Console.WriteLine("Game exe not found in arguments");
+                        ShowHelp();
+                        return;
+                    }
+                    var gameName = Path.GetFileNameWithoutExtension(gameExe);
+                    var dataDir = FilesManager.GetDataDirPath(gameExe);
+                    if (dataDir == null)
+                    {
+                        Console.WriteLine("Data directory not found");
+                        break;
+                    }
+                    Command.CleanGame(gameName, dataDir);
+                    break;
+            }
+        }
     }
 
-    private static string? HandleArgs(string[] args)
+    /// <summary>
+    /// Write the help message to the console
+    /// </summary>
+    private static void ShowHelp()
     {
-        if (args.Length < 1)
-            args = ["-h"];
+        Console.WriteLine(
+            """
 
-        switch (args[0])
-        {
-            case "-h" or "--help" or "-?" or "/?":
-                Console.WriteLine("Usage: ModotInstaller <Game Executable>");
-                break;
-            case "clean":
-                try
-                {
-                    if (args.GetValue(1) is string gameExe)
-                    {
-                        Console.WriteLine("Cleaning up...");
-                        Run.CleanGame(gameExe);
-                    }
-                }
-                catch (IndexOutOfRangeException)
-                {
-                    Console.WriteLine("Please give the game executable");
-                }
+            MLG Installer
 
-                break;
-            default:
-                return args[0];
-        }
+            Usage:
+                -h, --help
+                    Show this help message.
 
-        return null;
+                -i <game executable>, --install <game executable>
+                    Install MLG into the game.
+
+                -u <game executable>, --uninstall <game executable>
+                    Uninstall MLG from the game.
+
+            """
+        );
     }
 }

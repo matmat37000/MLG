@@ -19,23 +19,44 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace MLG.Installer;
 
-public class FilesManager(string gamePath)
+public static class FilesManager
 {
     /// <summary>
-    /// Working directory
+    /// Searches for the game data directory where libraries are stored.
+    /// Returns <c>null</c> if no matching directory is found.
     /// </summary>
-    public string GamePath { get; } = gamePath;
+    /// <param name="gameExe">The full path to the game executable.</param>
+    /// <returns>
+    /// The full path to the game data directory if found; otherwise, <c>null</c>.
+    /// </returns>
+    /// <exception cref="NullReferenceException">
+    /// Thrown if the directory containing the game executable cannot be found.
+    /// </exception>
+    public static string? GetDataDirPath(string gameExe)
+    {
+        var parentDir =
+            Path.GetDirectoryName(gameExe)
+            ?? throw new NullReferenceException("Directory not found");
+        var gameName = Path.GetFileNameWithoutExtension(gameExe);
+
+        var dataDir = Directory
+            .GetDirectories(parentDir, $"data_{gameName}_" + "*", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault();
+
+        return dataDir;
+    }
 
     /// <summary>
     /// Create the MLG folder structure
     /// </summary>
     /// <returns>Return true if success, else false</returns>
-    public bool CreateFolderStructure()
+    public static bool CreateFolderStructure(string gamePath)
     {
-        var baseDir = Path.Join(GamePath, "MLG");
+        var baseDir = Path.Join(gamePath, "MLG");
 
         if (Directory.Exists(baseDir))
             return false;
@@ -53,9 +74,9 @@ public class FilesManager(string gamePath)
     /// <summary>
     /// Remove the MLG folder structure
     /// </summary>
-    public void RemoveFolderStructure()
+    public static void RemoveFolderStructure(string gamePath)
     {
-        var baseDir = Path.Join(GamePath, "MLG");
+        var baseDir = Path.Join(gamePath, "MLG");
         if (Directory.Exists(baseDir))
             Directory.Delete(baseDir, recursive: true);
         Console.WriteLine($"Deleted {baseDir}");
