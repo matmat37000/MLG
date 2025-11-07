@@ -24,5 +24,12 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet build MLG.Installer --no-restore
+    - uses: actions/upload-artifact@v4
+      name: Upload Artifact
+      with:
+        name: MLG.Installer
+        path: /home/runner/work/MLG/MLG/MLG.Core/bin/Debug/net8.0/
+        if-no-files-found: error
+    
     # - name: Test
     #   run: dotnet test --no-build --verbosity normal
