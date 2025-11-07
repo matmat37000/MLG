@@ -28,7 +28,7 @@ jobs:
       name: Upload Artifact
       with:
         name: MLG.Installer
-        path: /home/runner/work/MLG/MLG/*/bin/Debug/net8.0/
+        path: /home/runner/work/MLG/MLG/MLG.Installer/bin/Debug/net8.0/
         if-no-files-found: error
         overwrite: true
     
